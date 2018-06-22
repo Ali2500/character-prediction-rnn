@@ -1,2 +1,5 @@
-/**.pyc
 /.idea
+/logs
+/datasets
+/saved-models
+**.pyc
