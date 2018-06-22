@@ -45,6 +45,7 @@ class RNNModel(object):
         model.seq_lengths = tf_graph.get_tensor_by_name('placeholders/seq_lengths:0')
         model.init_state = tf_graph.get_tensor_by_name('placeholders/init_state:0')
         model.true_labels = tf_graph.get_tensor_by_name('placeholders/labels:0')
+        model.dropout_pkeep = tf_graph.get_tensor_by_name('placeholders/dropout_pkeep:0')
 
         model.reshaped_softmax = tf_graph.get_tensor_by_name('softmax_output:0')
         model.predicted_idx = tf_graph.get_tensor_by_name('prediction:0')
@@ -137,7 +138,7 @@ class RNNModel(object):
             if (t + 1) % 5 == 0:
                 print "[ INFO] Performing inference for t = %d/%d" % (t + 1, n_future_preds)
 
-            feed_dict = {self.input_batches: input, self.seq_lengths: seq_len, self.init_state: istate}
+            feed_dict = {self.input_batches: input, self.seq_lengths: seq_len, self.init_state: istate, self.dropout_pkeep: 1.0}
             prediction, ostate = self.session.run([self.predicted_idx, self.current_state], feed_dict=feed_dict)
             # print idx_arr_to_str(prediction[0])
 
