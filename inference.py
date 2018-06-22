@@ -26,15 +26,25 @@ def main(args):
 
     prediction = rnn_model.perform_inference(batch, seq_lengths, args.prediction_length)
 
+    filewrite = False
+    if args.output:
+        outfile = open(args.output, 'w')
+        filewrite = True
+
     for i in range(len(content)):
-        print "'%s' --> '%s'" % (content[i], prediction[i])
-        print '-------------------------------'
+        out_string = "'%s' --> '%s'\n-------------------------------\n" % (content[i], prediction[i])
+        print out_string
+        if filewrite:
+            outfile.write(out_string)
+
+    if filewrite:
+        outfile.close()
 
 
 if __name__ == '__main__':
     parser = ArgumentParser(description="Script for performing inference from trained RNN model on custom text strings")
     parser.add_argument('--text-file', '-i', required=True)
-    parser.add_argument('--output', '-o', required=True)
+    parser.add_argument('--output', '-o', required=False)
     parser.add_argument('--prediction-length', type=int, default=100)
 
     main(parser.parse_args())
