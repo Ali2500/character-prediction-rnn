@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from bs4 import BeautifulSoup
 from reuters_article import ReutersArticle
 from random import shuffle
+from definitions import DATASET_DIR
 import os
 import pickle
 
@@ -61,14 +62,13 @@ class ReutersDatasetParser(object):
 
 
 def main(args):
-    data_parser = ReutersDatasetParser(args.dataset)
+    data_parser = ReutersDatasetParser(DATASET_DIR)
     data_parser.load_articles(args.min_article_length)
     data_parser.save_to_file(args.test_ratio)
 
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--dataset', '-d', required=True)
     parser.add_argument('--test-ratio', type=float, default=0.2)
     parser.add_argument('--min-article-length', type=int, default=500)
 
