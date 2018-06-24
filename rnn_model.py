@@ -25,10 +25,10 @@ class RNNModel(object):
         self.reshaped_softmax = None
         self.predicted_idx = None
         self.accuracy = None
+        self.loss = None
 
         self.training_step_num = 0
         self.training_step_tf = None
-        # self.max_seq_length_tf = None
 
     @classmethod
     def load_from_model_file(cls, model_file_prefix):
@@ -38,6 +38,7 @@ class RNNModel(object):
         model.session = tf.InteractiveSession()
 
         model.tf_saver = tf.train.import_meta_graph(model_file_prefix + '.meta')
+        # model.init_network()
         model.tf_saver.restore(model.session, model_file_prefix)
         tf_graph = tf.get_default_graph()
 
@@ -51,6 +52,7 @@ class RNNModel(object):
         model.predicted_idx = tf_graph.get_tensor_by_name('prediction:0')
         model.accuracy = tf_graph.get_tensor_by_name('accuracy:0')
         model.current_state = tf_graph.get_tensor_by_name('current_state:0')
+        model.loss = tf_graph.get_tensor_by_name('loss:0')
 
         model.train_step = tf_graph.get_operation_by_name('train_step')
         model.inc_train_step = tf_graph.get_operation_by_name('inc_train_step')
@@ -67,7 +69,7 @@ class RNNModel(object):
         init = tf.global_variables_initializer()
         self.session.run(init)
 
-        self.tf_saver = tf.train.Saver(max_to_keep=5)
+        self.tf_saver = tf.train.Saver(max_to_keep=5, save_relative_paths=True)
 
     def _lstm_cell_with_dropout(self):
         return tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.LSTMCell(self.cell_size, state_is_tuple=True),
@@ -103,10 +105,10 @@ class RNNModel(object):
         true_output_reshaped = tf.cast(tf.reshape(self.true_labels, [-1]), dtype=tf.int32)
         loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=true_output_reshaped, logits=logits,
                                                               name='softmax_cross_entropy')
-        total_loss = tf.reduce_mean(loss)
+        self.loss = tf.reduce_mean(loss, name='loss')
 
         with tf.control_dependencies([self.inc_train_step]):
-            self.train_step = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(total_loss, name='train_step')
+            self.train_step = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(self.loss, name='train_step')
 
         softmax = tf.nn.softmax(logits)
         self.reshaped_softmax = tf.reshape(softmax, [-1, self.max_seq_length, N_CHARS], name='softmax_output')
@@ -125,7 +127,15 @@ class RNNModel(object):
         self.training_step_num = self.training_step_tf.eval()
         return prediction, ostate, accuracy
 
-    def perform_inference(self, batch, seq_len, n_future_preds, input_state=None):
+    def process_validation_batch(self, batch, batch_label, seq_len, istate):
+        feed_dict = {self.input_batches: batch, self.true_labels: batch_label, self.seq_lengths: seq_len,
+                     self.init_state: istate, self.dropout_pkeep: 1.0}
+
+        prediction, ostate, accuracy, loss = self.session.run([self.predicted_idx, self.current_state, self.accuracy,
+                                                               self.loss], feed_dict=feed_dict)
+        return prediction, ostate, accuracy, loss
+
+    def perform_inference(self, batch, seq_len, n_future_preds, input_state=None, verbose=True):
         if not isinstance(input_state, np.ndarray):
             istate = np.zeros(shape=(self.n_layers, 2, batch.shape[0], self.cell_size), dtype=np.float32)
         else:
@@ -135,12 +145,12 @@ class RNNModel(object):
         pred_idx = np.zeros(shape=(batch.shape[0], n_future_preds), dtype=np.uint8)
 
         for t in range(n_future_preds):
-            if (t + 1) % 5 == 0:
+            if (t + 1) % 5 == 0 and verbose:
                 print "[ INFO] Performing inference for t = %d/%d" % (t + 1, n_future_preds)
 
-            feed_dict = {self.input_batches: input, self.seq_lengths: seq_len, self.init_state: istate, self.dropout_pkeep: 1.0}
+            feed_dict = {self.input_batches: input, self.seq_lengths: seq_len, self.init_state: istate,
+                         self.dropout_pkeep: 1.0}
             prediction, ostate = self.session.run([self.predicted_idx, self.current_state], feed_dict=feed_dict)
-            # print idx_arr_to_str(prediction[0])
 
             for i in range(batch.shape[0]):
                 # shift input sequence to the left by one character
