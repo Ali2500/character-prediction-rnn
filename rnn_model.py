@@ -32,32 +32,10 @@ class RNNModel(object):
 
     @classmethod
     def load_from_model_file(cls, model_file_prefix):
-        assert os.path.exists(model_file_prefix + '.meta')
-
         model = cls(max_seq_length=70)
-        model.session = tf.InteractiveSession()
 
-        model.tf_saver = tf.train.import_meta_graph(model_file_prefix + '.meta')
-        # model.init_network()
+        model.init_network()
         model.tf_saver.restore(model.session, model_file_prefix)
-        tf_graph = tf.get_default_graph()
-
-        model.input_batches = tf_graph.get_tensor_by_name('placeholders/input:0')
-        model.seq_lengths = tf_graph.get_tensor_by_name('placeholders/seq_lengths:0')
-        model.init_state = tf_graph.get_tensor_by_name('placeholders/init_state:0')
-        model.true_labels = tf_graph.get_tensor_by_name('placeholders/labels:0')
-        model.dropout_pkeep = tf_graph.get_tensor_by_name('placeholders/dropout_pkeep:0')
-
-        model.reshaped_softmax = tf_graph.get_tensor_by_name('softmax_output:0')
-        model.predicted_idx = tf_graph.get_tensor_by_name('prediction:0')
-        model.accuracy = tf_graph.get_tensor_by_name('accuracy:0')
-        model.current_state = tf_graph.get_tensor_by_name('current_state:0')
-        model.loss = tf_graph.get_tensor_by_name('loss:0')
-
-        model.train_step = tf_graph.get_operation_by_name('train_step')
-        model.inc_train_step = tf_graph.get_operation_by_name('inc_train_step')
-
-        model.training_step_tf = tf_graph.get_tensor_by_name('training_step_num:0')
         model.training_step_num = model.training_step_tf.eval()
 
         return model
@@ -69,7 +47,7 @@ class RNNModel(object):
         init = tf.global_variables_initializer()
         self.session.run(init)
 
-        self.tf_saver = tf.train.Saver(max_to_keep=5, save_relative_paths=True)
+        self.tf_saver = tf.train.Saver(max_to_keep=3, save_relative_paths=True)
 
     def _lstm_cell_with_dropout(self):
         return tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.LSTMCell(self.cell_size, state_is_tuple=True),
