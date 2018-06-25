@@ -56,7 +56,8 @@ def perform_validation_run(rnn_model, validation_batch_generator):
     return average_loss, average_accuracy
 
 
-def train_rnn(training_articles, testing_articles, n_epochs, batch_size, seq_length, char_skip, dropout_pkeep):
+def train_rnn(training_articles, testing_articles, n_epochs, batch_size, seq_length, char_skip, dropout_pkeep,
+              force_retrain):
     print "[ INFO] Parsing training articles..."
     training_batch_generator = BatchGenerator(training_articles, batch_size, seq_length, char_skip)
 
@@ -64,7 +65,7 @@ def train_rnn(training_articles, testing_articles, n_epochs, batch_size, seq_len
     validation_batch_generator = BatchGenerator(testing_articles, batch_size, seq_length, char_skip)
 
     model_file = get_model_file()
-    if model_file:
+    if model_file and not force_retrain:
         rnn_model = RNNModel.load_from_model_file(model_file)
         state_file = os.path.join(MODEL_SAVE_DIR, 'saved-vars.npz')
         if not os.path.exists(state_file):
@@ -157,12 +158,13 @@ def main(args):
     print "[ INFO] Loaded %d training and %d testing articles" % (len(training_articles), len(validation_articles))
 
     train_rnn(training_articles, validation_articles, args.epochs, args.batch_size, args.seq_length, args.char_skip,
-              args.dropout_pkeep)
+              args.dropout_pkeep, args.train_from_scratch)
 
 
 if __name__ == '__main__':
     parser = ArgumentParser(description='Script for training RNN model for text prediction using the Reuters21578 '
                                         'dataset.')
+    parser.add_argument('--train-from-scratch', action='store_true')
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--batch-size', type=int, default=40)
     parser.add_argument('--seq-length', type=int, default=70)
